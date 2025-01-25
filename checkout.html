@@ -1,0 +1,264 @@
+<?php
+session_start(); // Memulai session untuk mengakses keranjang
+require "koneksi.php";
+
+// Cek apakah keranjang ada di session
+if (!isset($_SESSION['keranjang']) || empty($_SESSION['keranjang'])) {
+    header("Location: keranjang.php"); // Jika keranjang kosong, redirect ke halaman keranjang
+    exit;
+}
+
+// Mengambil data produk dari keranjang
+$produkKeranjang = [];
+$totalHarga = 0;
+
+foreach ($_SESSION['keranjang'] as $idProduk => $jumlah) {
+    // Ambil data produk berdasarkan ID
+    $query = mysqli_query($con, "SELECT * FROM tb_produk WHERE id_produk = '$idProduk'");
+    $produk = mysqli_fetch_assoc($query);
+    
+    // Menghitung total per produk
+    $produk['jumlah'] = $jumlah;
+    $produk['total'] = $produk['harga'] * $produk['jumlah'];
+    
+    // Tambahkan produk ke keranjang
+    $produkKeranjang[] = $produk;
+    $totalHarga += $produk['total']; // Menambahkan total harga
+}
+
+// Variabel untuk menampilkan status konfirmasi
+$konfirmasiStatus = false;
+$id_transaksi = null;
+$status_pengiriman = "Menunggu Pengiriman"; // Status awal pengiriman
+$metode_pembayaran = ""; // Menyimpan metode pembayaran
+
+if (isset($_POST['konfirmasi'])) {
+    // Simulasi proses checkout
+    $id_pelanggan = $_SESSION['user_id']; // ID pelanggan (misalnya diambil dari session pengguna yang login)
+    $tanggal_pesanan = date("Y-m-d H:i:s");
+    
+    // Menentukan status pesanan
+    $status_pesanan = "Menunggu Pembayaran"; // Status awal pesanan
+    
+    // Insert data transaksi ke tabel pesanan
+    $queryTransaksi = mysqli_query($con, "INSERT INTO tb_pesanan (id_pelanggan, tanggal_pesanan, status_pesanan) 
+                                          VALUES ('$id_pelanggan', '$tanggal_pesanan', '$status_pesanan')");
+    
+    // Mendapatkan ID transaksi yang baru dimasukkan
+    $id_transaksi = mysqli_insert_id($con);
+    
+    // Alamat pembayaran dan status pengiriman (diambil dari input form atau nilai default)
+    $alamat_pembayaran = $_POST['alamat']; // Alamat Pengiriman yang diinput
+    $tanggal_pengiriman = date("Y-m-d"); // Tanggal pengiriman, sesuaikan jika perlu
+    
+    // Insert data pengiriman ke tabel tb_pengiriman
+    $queryPengiriman = mysqli_query($con, "INSERT INTO tb_pengiriman (id_pesanan, alamat_pembayaran, tanggal_pengiriman, status_pengiriman) 
+                                          VALUES ('$id_transaksi', '$alamat_pembayaran', '$tanggal_pengiriman', '$status_pengiriman')");
+
+    // Setelah transaksi selesai, keranjang dihapus
+    unset($_SESSION['keranjang']);
+    
+    // Update status pesanan 
+    $status_pesanan = "Pembayaran Diterima, Sedang Diproses"; // Status pesanan yang baru
+    $queryUpdatePesanan = mysqli_query($con, "UPDATE tb_pesanan SET status_pesanan = '$status_pesanan' 
+                                              WHERE id_pesanan = '$id_transaksi'");
+    
+    // Update status pengiriman 
+    $status_pengiriman = $_POST['alamat']; // Status pengiriman yang baru
+    $queryUpdatePengiriman = mysqli_query($con, "UPDATE tb_pengiriman SET status_pengiriman = '$status_pengiriman' 
+                                                 WHERE id_pesanan = '$id_transaksi'");
+
+    // Menyimpan metode pembayaran yang dipilih
+    $metode_pembayaran = $_POST['metode_pembayaran'];
+
+    // Set status konfirmasi pembelian
+    $konfirmasiStatus = true;
+
+    mysqli_query($con, "INSERT INTO tb_pembayaran(id_pelanggan, id_pesanan, metode_pembayaran, tanggal_pembayaran, status_pembayaran) VALUES('$id_pelanggan', '$id_transaksi', '$metode_pembayaran', '$tanggal_pengiriman', '$status_pesanan')");
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - Invoice</title>
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: rgb(56, 3, 84); /* Background lebih terang */
+            height: 100vh; /* Agar halaman memiliki tinggi penuh */
+        }
+
+        .container {
+            display: flex; /* Menambahkan flexbox */
+            justify-content: center; /* Menempatkan item di tengah secara horizontal */
+            align-items: center; /* Menempatkan item di tengah secara vertikal */
+            height: 100vh; /* Membuat container mengisi seluruh tinggi layar */
+        }
+
+        .checkout-container {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 90%; /* Menentukan lebar kotak agar memanjang */
+            max-width: 1000px; /* Lebar maksimum kotak */
+            min-width: 600px; /* Lebar minimum kotak */
+        }
+
+        .produk-image {
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .total-harga {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .table {
+            margin-top: 20px;
+        }
+
+        .table th, .table td {
+            padding: 15px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .table th {
+            background-color: #f8f9fa;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .btn-konfirmasi {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            border: none;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+
+        .btn-konfirmasi:hover {
+            background-color: #0056b3;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .checkout-header h2 {
+            font-size: 26px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .total-row td {
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        @media (max-width: 768px) {
+            .produk-image {
+                width: 100px;
+                height: 100px;
+            }
+
+            .table th, .table td {
+                font-size: 14px;
+            }
+
+            .btn-konfirmasi {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="checkout-container">
+            <div class="checkout-header text-center">
+                <h2>Invoice Pembelian</h2>
+                <hr>
+            </div>
+
+            <?php if ($konfirmasiStatus): ?>
+                <div class="alert alert-success text-center" role="alert">
+                    <h4 class="alert-heading">Terima Kasih!</h4>
+                    <p>Pesanan Anda telah berhasil diproses. ID Pesanan Anda adalah <strong><?php echo $id_transaksi; ?></strong></p>
+                    <p>Status Pesanan: <strong>Sedang Diproses</strong></p>
+                    <p>Status Pengiriman: <strong><?= $status_pengiriman ?></strong></p> <!-- Status pengiriman yang baru -->
+                    
+                    <?php if ($metode_pembayaran == 'transfer'): ?>
+                        <p>Silakan lakukan pembayaran melalui Transfer Bank ke rekening yang akan kami informasikan.</p>
+                    <?php elseif ($metode_pembayaran == 'cod'): ?>
+                        <p>Pembayaran dapat dilakukan dengan metode Cash on Delivery (COD), yaitu tunai saat barang diterima.</p>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Gambar</th>
+                            <th>Produk</th>
+                            <th>Harga</th>
+                            <th>Jumlah</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($produkKeranjang as $produk) { ?>
+                        <tr>
+                            <td><img src="image/<?php echo $produk['foto']; ?>" class="produk-image" alt="<?php echo $produk['nama_produk']; ?>"></td>
+                            <td><?php echo $produk['nama_produk']; ?></td>
+                            <td>Rp <?php echo number_format($produk['harga'], 0, ',', '.'); ?></td>
+                            <td><?php echo $produk['jumlah']; ?></td>
+                            <td>Rp <?php echo number_format($produk['total'], 0, ',', '.'); ?></td>
+                        </tr>
+                        <?php } ?>
+                        <tr class="total-row">
+                            <td colspan="4" class="total-harga">Total Harga</td>
+                            <td class="total-harga">Rp <?php echo number_format($totalHarga, 0, ',', '.'); ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="text-center">
+                    <form action="checkout.php" method="POST">
+                        <div class="form-group text-start mt-4">
+                            <label for="alamat">Alamat Pengiriman</label>
+                            <textarea name="alamat" id="alamat" cols="30" rows="5" class="form-control" placeholder="Alamat Pengiriman"></textarea>
+                        </div>
+
+                        <div class="form-group text-start mt-4">
+                            <label for="metode_pembayaran">Metode Pembayaran</label>
+                            <select name="metode_pembayaran" id="metode_pembayaran" class="form-control" required>
+                                <option value="transfer">Transfer Bank</option>
+                                <option value="cod">Cash on Delivery (COD)</option>
+                            </select>
+                        </div>
+
+
+                        <button type="submit" name="konfirmasi" class="btn-konfirmasi mt-4">Konfirmasi Pembelian</button>
+                    </form>
+                </div>
+            <?php endif; ?>
+
+        </div>
+    </div>
+
+    <script src="bootstrap/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

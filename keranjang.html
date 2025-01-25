@@ -1,0 +1,271 @@
+<?php
+session_start(); // Memulai session untuk menyimpan data keranjang
+require "koneksi.php";
+
+// Cek apakah keranjang ada di session
+if (!isset($_SESSION['keranjang']) || empty($_SESSION['keranjang'])) {
+    $keranjangKosong = true; // Jika keranjang kosong
+} else {
+    $keranjangKosong = false;
+}
+
+// Mengambil data produk dari keranjang
+$produkKeranjang = [];
+$totalHarga = 0;
+
+if (!$keranjangKosong) {
+    // Ambil data produk dari keranjang berdasarkan ID produk
+    $idsProduk = implode(",", array_keys($_SESSION['keranjang'])); // Mengambil semua id_produk dalam keranjang
+    $query = mysqli_query($con, "SELECT * FROM tb_produk WHERE id_produk IN ($idsProduk)");
+
+    while ($produk = mysqli_fetch_assoc($query)) {
+        // Mengambil jumlah produk dari keranjang
+        $produk['jumlah'] = $_SESSION['keranjang'][$produk['id_produk']];
+        $produk['total'] = $produk['harga'] * $produk['jumlah']; // Hitung total untuk produk tersebut
+        $produkKeranjang[] = $produk;
+        $totalHarga += $produk['total']; // Menambahkan total harga
+
+        // cek item di keranjang
+        $queryItem = mysqli_query($con, "SELECT * FROM tb_keranjang WHERE id_produk=" . $produk['id_produk']);
+        $item = mysqli_fetch_assoc($queryItem);
+
+        if($item) {
+            mysqli_query($con, "UPDATE tb_keranjang SET jumlah=" . $produk["jumlah"] . " WHERE id_produk=" . $produk['id_produk']);
+        } else {
+            $idPelanggan = $_SESSION['user_id'];
+            $idProduk = $produk["id_produk"];
+            $jumlah = $produk["jumlah"];
+            mysqli_query($con, "INSERT INTO tb_keranjang(id_pelanggan, id_produk, jumlah) VALUES('$idPelanggan', '$idProduk', '$jumlah')");
+        }
+    }
+}
+
+// Menghapus produk dari keranjang
+if (isset($_GET['hapus'])) {
+    $idProdukHapus = $_GET['hapus'];
+    unset($_SESSION['keranjang'][$idProdukHapus]);
+    mysqli_query($con, "DELETE FROM tb_keranjang WHERE id_produk=" . $idProdukHapus);
+    header("Location: keranjang.php"); // Redirect agar halaman ter-refresh
+    exit;
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keranjang Belanja</title>
+    
+    <!-- Menambahkan link ke file CSS -->
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    
+    <style>
+        body {
+            background-color: rgb(56, 3, 84); /* Background halaman cerah */
+            color: #333;
+        }
+
+        .produk-image {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+        }
+
+        .total-harga {
+            font-size: 22px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .table th, .table td {
+            vertical-align: middle;
+        }
+
+        .table {
+            margin-top: 20px;
+        }
+
+        .table th, .table td {
+            text-align: center;
+        }
+
+        .table-bordered {
+            border: 1px solid #ddd;
+        }
+
+        .btn-custom {
+            font-weight: bold;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+        }
+
+        .checkout-btn {
+            display: flex;
+            justify-content: center;
+        }
+
+        .keranjang-kosong {
+            text-align: center;
+            font-size: 18px;
+            margin-top: 50px;
+        }
+
+        .checkout-btn .btn {
+            margin-top: 15px;
+        }
+
+        .container {
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            margin-top: 40px;
+            max-width: 1000px; /* Lebar maksimal container */
+            width: 90%; /* Menyebar sesuai lebar layar */
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Navbar Styling */
+        .navbar {
+            background-color: rgb(56, 3, 84); /* Navbar background */
+        }
+
+        .navbar-nav .nav-item .nav-link {
+            color: black;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .navbar-nav .nav-item .nav-link:hover {
+            color: #f8f9fa;
+        }
+
+        .navbar-brand {
+            font-size: 22px;
+            color: white;
+            font-weight: 700;
+        }
+
+        .navbar-toggler-icon {
+            background-color: white;
+        }
+
+        .navbar-nav {
+            margin-left: auto;
+        }
+
+        @media (max-width: 768px) {
+            .produk-image {
+                width: 80px;
+                height: 80px;
+            }
+
+            .table th, .table td {
+                font-size: 14px;
+            }
+
+            .total-harga {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container">
+            <a class="navbar-brand" href="produk.php">Produk Cozy</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.php">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="tentang-kami.php">Tentang Kami</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="produk.php">Produk</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="keranjang.php">Keranjang</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="checkout.php">Checkout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2 class="text-center mb-4">Keranjang Belanja</h2>
+
+        <?php if ($keranjangKosong) { ?>
+            <p class="keranjang-kosong">Keranjang Anda kosong. Silakan tambahkan produk ke keranjang.</p>
+        <?php } else { ?>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Gambar</th>
+                        <th>Produk</th>
+                        <th>Harga</th>
+                        <th>Jumlah</th>
+                        <th>Total</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($produkKeranjang as $produk) { ?>
+                    <tr>
+                        <td><img src="image/<?php echo $produk['foto']; ?>" class="produk-image" alt="<?php echo $produk['nama_produk']; ?>"></td>
+                        <td><?php echo $produk['nama_produk']; ?></td>
+                        <td>Rp <?php echo number_format($produk['harga'], 0, ',', '.'); ?></td>
+                        <td><?php echo $produk['jumlah']; ?></td>
+                        <td>Rp <?php echo number_format($produk['total'], 0, ',', '.'); ?></td>
+                        <td>
+                            <a href="keranjang.php?hapus=<?php echo $produk['id_produk']; ?>" class="btn btn-danger btn-custom">Hapus</a>
+                        </td>
+                    </tr>
+                    <?php } ?>
+                    <tr>
+                        <td colspan="4" class="text-end total-harga">Total Harga</td>
+                        <td class="total-harga">Rp <?php echo number_format($totalHarga, 0, ',', '.'); ?></td>
+                        <td class="checkout-btn">
+                            <a href="checkout.php" class="btn btn-success btn-custom">Checkout</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        <?php } ?>
+    </div>
+
+    <!-- Menambahkan script JavaScript -->
+    <script src="bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="fontawesome/js/all.min.js"></script>
+</body>
+</html>

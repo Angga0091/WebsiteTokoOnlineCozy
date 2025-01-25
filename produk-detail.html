@@ -1,0 +1,102 @@
+<?php 
+    session_start(); // Memulai session untuk menyimpan data keranjang
+    require "koneksi.php";
+
+    $nama = htmlspecialchars($_GET['nama']);
+    $queryProduk = mysqli_query($con, "SELECT * FROM tb_produk WHERE nama_produk='$nama'");
+    $produk = mysqli_fetch_array($queryProduk);
+
+    $queryProdukTerkait = mysqli_query($con, "SELECT * FROM tb_produk WHERE id_kategori='$produk[id_kategori]' AND id_produk!='$produk[id_produk]' LIMIT 4");
+
+    // Inisialisasi keranjang jika belum ada
+    if (!isset($_SESSION['keranjang'])) {
+        $_SESSION['keranjang'] = [];
+    }
+
+    // Menambahkan produk ke keranjang
+    if (isset($_POST['add_to_cart'])) {
+        $id_produk = $_POST['id_produk'];
+        $jumlah = $_POST['jumlah'];
+
+        // Cek apakah produk sudah ada dalam keranjang
+        if (isset($_SESSION['keranjang'][$id_produk])) {
+            $_SESSION['keranjang'][$id_produk] += $jumlah; // Tambah jumlah jika sudah ada
+        } else {
+            $_SESSION['keranjang'][$id_produk] = $jumlah; // Tambahkan produk baru jika belum ada
+        }
+
+        // Redirect ke halaman keranjang setelah produk ditambahkan
+        header("Location: keranjang.php");
+        exit;
+    }
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toko Online | Detail Produk</title>
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <?php require "navbar.php"; ?>
+
+    <!--detail produk-->
+    <div class="container-fluid py-5 mb-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-5">
+                    <img src="image/<?php echo $produk['foto']; ?>" class="w-100" alt="">
+                </div>
+                <div class="col-lg-6 offset-lgs-1">
+                    <h1><?php echo $produk['nama_produk']; ?></h1>
+                    <p class="fs-5">
+                        <?php echo $produk['deskripsi']; ?>
+                    </p>
+                    <p class="text-harga">
+                        Rp <?php echo number_format($produk['harga'], 0, ',', '.'); ?>
+                    </p>
+                    <p class="fs-5">Stok : <strong><?php echo $produk['stok']; ?></strong></p>
+
+                    <!-- Form untuk menambahkan ke keranjang -->
+                    <form action="produk-detail.php?nama=<?php echo $produk['nama_produk']; ?>" method="POST">
+                        <div class="mb-3">
+                            <label for="jumlah" class="form-label">Jumlah</label>
+                            <input type="number" id="jumlah" name="jumlah" class="form-control" value="1" min="1" max="<?php echo $produk['stok']; ?>" required>
+                        </div>
+                        <input type="hidden" name="id_produk" value="<?php echo $produk['id_produk']; ?>">
+                        <button type="submit" name="add_to_cart" class="btn btn-primary">Tambahkan ke Keranjang</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--produk terkait-->
+    <div class="container-fluid py-5 warna2">
+        <div class="container">
+            <h2 class="text-center text-white mb-5">Produk Terkait</h2>
+
+            <div class="row">
+                <?php while($data=mysqli_fetch_array($queryProdukTerkait)){ ?>
+                <div class="col-md-6 col-lg-3 mb-3">
+                    <a href="produk-detail.php?nama=<?php echo $data['nama_produk']; ?>">
+                        <img src="image/<?php echo $data['foto']; ?>" class="img-fluid img-thumbnail produk-terkait-image" alt=""/>
+                    </a>
+                </div>
+                <?php } ?>
+            </div>
+        </div>
+    </div>
+
+    <!--footer-->
+    <?php require "footer.php"; ?>
+
+    <script src="bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="fontawesome/js/all.min.js"></script>
+</body>
+</html>
