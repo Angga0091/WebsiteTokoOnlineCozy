@@ -1,6 +1,8 @@
 <?php
-    require "koneksi.php";
-    $queryProduk = mysqli_query($con, "SELECT id_produk, nama_produk, harga, foto, deskripsi FROM tb_produk LIMIT 6");
+require "koneksi.php";
+
+// Query produk
+$queryProduk = mysqli_query($con, "SELECT id_produk, nama_produk, harga, foto, deskripsi FROM tb_produk LIMIT 6");
 ?>
 
 <!DOCTYPE html>
@@ -17,13 +19,13 @@
 <body>
     <?php require "navbar.php"; ?>
 
-    <!-- banner -->
+    <!-- Banner -->
     <div class="container-fluid banner d-flex align-items-center">
         <div class="container text-center text-white">
             <h1>Toko Online Cozy</h1>
             <h3>Mau Cari Pakaian ??</h3>
             <div class="col-8 offset-md-2">
-                <form method="get" action="produk.html">
+                <form method="get" action="produk.php">
                     <div class="input-group input-group-lg my-4">
                         <input type="text" class="form-control" placeholder="Nama Barang" 
                         aria-label="Recipient's username" aria-describedby="basic-addon2" name="keyword">
@@ -34,7 +36,7 @@
         </div>
     </div>
 
-    <!-- highlighted kategori -->
+    <!-- Highlighted Kategori -->
     <div class="container-fluid py-5">
         <div class="container text-center">
             <h3>Kategori Terlaris</h3>
@@ -42,63 +44,63 @@
             <div class="row mt-5">
                 <div class="col-md-4 mb-3">
                     <div class="highlighted-kategori kategori-baju-tshirt d-flex justify-content-center align-items-center">
-                        <h4 class="text-white"><a class ="no-decoration" href="produk.html?kategori=T-Shirt&gambar=BAJU%209.jpg">T-Shirt</a></h4>
+                        <h4 class="text-white"><a class="no-decoration" href="produk.php?kategori=T-Shirt&gambar=BAJU%209.jpg">T-Shirt</a></h4>
                     </div>
                 </div>
                 <div class="col-md-4 mb-3">
                     <div class="highlighted-kategori kategori-polo d-flex justify-content-center align-items-center">
-                        <h4 class="text-white"><a class ="no-decoration" href="produk.html">POLO</a></h4>
+                        <h4 class="text-white"><a class="no-decoration" href="produk.php?kategori=Polo&gambar=POLO.jpg">POLO</a></h4>
                     </div>
                 </div>
                 <div class="col-md-4 mb-3">
                     <div class="highlighted-kategori kategori-hoodie d-flex justify-content-center align-items-center">
-                        <h4 class="text-white"><a class ="no-decoration" href="produk.html">HOODIE</a></h4>
+                        <h4 class="text-white"><a class="no-decoration" href="produk.php?kategori=Hoodie&gambar=HOODIE.jpg">HOODIE</a></h4>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!--Tentang Kami-->
-        <div class="container-fluid warna3 py-5">
-            <div class="container text-center">
-                <h3>Tentang Kami</h3>
-                <p class="fs-5 mt-3">
-                    Cozy adalah usaha di bidang fashion yang berfokus pada produk seperti hoodie dan pakaian lainnya. 
-                    Untuk meningkatkan kenyamanan pelanggan dan menjangkau pasar lebih luas, Cozy kini hadir dalam 
-                    bentuk website yang memungkinkan pelanggan melihat koleksi produk, mengetahui harga, serta melakukan pemesanan dan pembayaran secara online. 
-                    Dengan transformasi ini, Cozy berkomitmen memberikan pengalaman belanja yang lebih mudah, praktis, dan modern.
-                </p>
-            </div>
+    <!-- Tentang Kami -->
+    <div class="container-fluid warna3 py-5">
+        <div class="container text-center">
+            <h3>Tentang Kami</h3>
+            <p class="fs-5 mt-3">
+                Cozy adalah usaha di bidang fashion yang berfokus pada produk seperti hoodie dan pakaian lainnya. 
+                Untuk meningkatkan kenyamanan pelanggan dan menjangkau pasar lebih luas, Cozy kini hadir dalam 
+                bentuk website yang memungkinkan pelanggan melihat koleksi produk, mengetahui harga, serta melakukan pemesanan dan pembayaran secara online. 
+                Dengan transformasi ini, Cozy berkomitmen memberikan pengalaman belanja yang lebih mudah, praktis, dan modern.
+            </p>
         </div>
+    </div>
 
-    <!--produk-->
+    <!-- Produk -->
     <div class="container-fluid py-5">
         <div class="container text-center">
             <h3>Produk</h3>
 
             <div class="row mt-5">
-                <?php while($data = mysqli_fetch_array($queryProduk)){ ?>
+                <?php while ($data = mysqli_fetch_array($queryProduk)) { ?>
                 <div class="col-sm-6 col-md-4 mb-3">
                     <div class="card h-100">
                         <div class="image-box">
-                            <img src="image/<?php echo $data ['foto']; ?>" class="card-img-top" alt="...">
+                            <img src="image/<?php echo urlencode($data['foto']); ?>" class="card-img-top" alt="<?php echo htmlspecialchars($data['nama_produk']); ?>">
                         </div>
                         <div class="card-body">
-                            <h4 class="card-title"><?php echo $data['nama_produk']; ?></h4>
-                            <p class="card-text text-truncate"><?php echo $data['deskripsi']; ?></p>
-                            <p class="card-text text-harga">Rp <?php echo $data['harga'];?></p>
-                            <a href="produk-detail.php?nama=<?php echo $data['nama_produk']; ?>" class="btn warna2 text-white">Lihat Detail</a>
+                            <h4 class="card-title"><?php echo htmlspecialchars($data['nama_produk']); ?></h4>
+                            <p class="card-text text-truncate"><?php echo htmlspecialchars($data['deskripsi']); ?></p>
+                            <p class="card-text text-harga">Rp <?php echo number_format($data['harga'], 0, ',', '.'); ?></p>
+                            <a href="produk-detail.php?nama=<?php echo urlencode($data['nama_produk']); ?>" class="btn warna2 text-white">Lihat Detail</a>
                         </div>
                     </div>
                 </div>
                 <?php } ?>
             </div>
-            <a class="btn btn-outline-warning mt-3 p-3 fs-4" href="produk.html">See More</a>
+            <a class="btn btn-outline-warning mt-3 p-3 fs-4" href="produk.php">See More</a>
         </div>
-    </div>   
+    </div>
 
-    <!--footer-->
+    <!-- Footer -->
     <?php require "footer.php"; ?>
     
     <script src="bootstrap/js/bootstrap.bundle.min.js"></script>
